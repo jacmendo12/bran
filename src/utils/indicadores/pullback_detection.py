@@ -2,7 +2,7 @@ import math
 import numpy as np
 
 class PullbackDetection:
-    def __init__(self, data, minimum_tresure=2.1):
+    def __init__(self, data, minimum_tresure=0.21):
         self.data = data
         self.minimum_tresure = minimum_tresure
 
@@ -24,27 +24,19 @@ class PullbackDetection:
         
         #analisis
         # print(data)
+        
         for i  in range(1,len(data)-1 ):  
             current_candle = data.iloc[i]
             previous_candle = data.iloc[i - 1]
             next_candle = data.iloc[i + 1]
         
-            # Detectar TODOS los pivots locales (sin filtro de rangos)
-            # Pivot Alto: high mayor que la vela anterior Y mayor que la siguiente
-            if(current_candle["high"] > previous_candle["high"] and current_candle["high"] > next_candle["high"]):
-                data.loc[i, 'pivotAlto'] = current_candle["high"]
-            
-            # Pivot Bajo: low menor que la vela anterior Y menor que la siguiente
-            if(current_candle["low"] < previous_candle["low"] and current_candle["low"] < next_candle["low"]):
-                data.loc[i, 'pivotBajo'] = current_candle["low"]
-        
             if(rangoAlto<=current_candle["parteAlta"]):
                 tendencia=1
             elif(rangoBajo>=current_candle["parteBaja"]):
                 tendencia=-1
-            #pivotAlto de estructura mayor (rompe rangos)
+            # Alto de estructura mayor (rompe rangos) - detección de pullback
             if(current_candle["high"]>=previous_candle["high"] and tendencia==1):
-               if (current_candle["high"]>next_candle["high"] and  rangoAlto<current_candle["parteAlta"]):     
+               if (current_candle["high"]>next_candle["high"] ):     
                    data.loc[i, 'altos'] = current_candle["high"]
                    rangoAlto=current_candle["high"]
                    index=indexPocs[np.argmin(pocAltosArray)]
@@ -69,9 +61,9 @@ class PullbackDetection:
                    indexPocs=[]
                     
 
-            #pivotBajo de estructura mayor (rompe rangos)
+            # Bajo de estructura mayor (rompe rangos) - detección de pullback
             if(current_candle["low"]<=previous_candle["low"]  and tendencia==-1):
-                if (current_candle["low"]<next_candle["low"] and rangoBajo>current_candle["parteBaja"] ):
+                if (current_candle["low"]<next_candle["low"]   ):
                     data.loc[i, 'bajos'] = current_candle["low"]
                     rangoBajo=current_candle["low"]
                     index=indexPocs[np.argmax(pocBajosArray)]
@@ -95,9 +87,28 @@ class PullbackDetection:
                     indexPocs=[]      
 
             pocBajosArray.append(current_candle["high"])
-            pocAltosArray.append(current_candle["low"])    
+            pocAltosArray.append(current_candle["low"])
             indexPocs.append(i)
             data.loc[i, 'tendencia'] = tendencia
+
+        # Nuevo indicador: Círculos huecos
+        # Círculos AZUL en todas las Y (altos y bajos)
+        indices_altos = data[data['altos'].notna()].index.tolist()
+        for idx in indices_altos:
+            data.loc[idx, 'circulosAzul'] = data.loc[idx, 'altos']
+        
+        indices_bajos = data[data['bajos'].notna()].index.tolist()
+        for idx in indices_bajos:
+            data.loc[idx, 'circulosAzul'] = data.loc[idx, 'bajos']
+        
+        # Círculos NARANJA en todos los triángulos (pocAltos y pocBajos)
+        indices_poc_altos = data[data['pocAltos'].notna()].index.tolist()
+        for idx in indices_poc_altos:
+            data.loc[idx, 'circulosNaranja'] = data.loc[idx, 'pocAltos']
+        
+        indices_poc_bajos = data[data['pocBajos'].notna()].index.tolist()
+        for idx in indices_poc_bajos:
+            data.loc[idx, 'circulosNaranja'] = data.loc[idx, 'pocBajos']
 
         rangos = {
             'rangoBajo': rangoBajo,

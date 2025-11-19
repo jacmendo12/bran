@@ -100,6 +100,53 @@
         .spinner-border {
             color: #1da1f2;
         }
+        
+        .info-panel {
+            background-color: #192734;
+            border: 1px solid #38444d;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+            display: none;
+        }
+        
+        .info-panel.show {
+            display: block;
+        }
+        
+        .info-content {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 1.5rem;
+        }
+        
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .info-label {
+            color: #8899a6;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        
+        .info-value {
+            color: #e1e8ed;
+            white-space: nowrap;
+        }
+        
+        .info-value.highlight {
+            color: #1da1f2;
+            font-weight: bold;
+        }
+        
+        .info-separator {
+            color: #38444d;
+            font-size: 1.2rem;
+        }
     </style>
 </head>
 <body>
@@ -119,8 +166,8 @@
                     <select class="form-select" id="intervalSelect">
                         <option value="1m">1 Minuto</option>
                         <option value="5m">5 Minutos</option>
-                        <option value="15m">15 Minutos</option>
-                        <option value="1h" selected>1 Hora</option>
+                        <option value="15m" selected>15 Minutos</option>
+                        <option value="1h">1 Hora</option>
                         <option value="4h">4 Horas</option>
                         <option value="1d">1 Día</option>
                     </select>
@@ -131,7 +178,7 @@
                 </div>
                 <div class="col-md-2">
                     <label for="minimumTresure" class="form-label">Minimum Tresure</label>
-                    <input type="number" class="form-control" id="minimumTresure" value="2.1" step="0.1" min="0">
+                    <input type="number" class="form-control" id="minimumTresure" value="0.21" step="0.1" min="0">
                 </div>
                 <div class="col-md-2">
                     <button class="btn btn-primary w-100" onclick="loadData()">
@@ -161,22 +208,36 @@
             </div>
         </div>
         
-        <div id="statistics" class="row mb-4">
-            <!-- Las estadísticas se cargarán dinámicamente aquí -->
-        </div>
-        
-        <div class="row">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        📊 Análisis de Volumen
-                    </div>
-                    <div class="card-body">
-                        <div id="volumeChart"></div>
-                    </div>
+        <div id="infoPanel" class="info-panel">
+            <h5 class="mb-3">📊 Información de Medición</h5>
+            <div class="info-content">
+                <div class="info-item">
+                    <span class="info-label">Fecha Naranja:</span>
+                    <span class="info-value" id="fechaNaranja">-</span>
+                </div>
+                <span class="info-separator">|</span>
+                <div class="info-item">
+                    <span class="info-label">Fecha Azul:</span>
+                    <span class="info-value" id="fechaAzul">-</span>
+                </div>
+                <span class="info-separator">|</span>
+                <div class="info-item">
+                    <span class="info-label">Valor Naranja:</span>
+                    <span class="info-value" id="valorNaranja">-</span>
+                </div>
+                <span class="info-separator">|</span>
+                <div class="info-item">
+                    <span class="info-label">Valor Azul:</span>
+                    <span class="info-value  " id="valorAzul">-</span>
+                </div>
+                <span class="info-separator">|</span>
+                <div class="info-item">
+                    <span class="info-label">Porcentaje:</span>
+                    <span class="info-value highlight" id="porcentaje">-</span>
                 </div>
             </div>
         </div>
+        
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -228,7 +289,6 @@
                 console.log('====================================');
                 
                 if (result.success) {
-                    renderStatistics(result.statistics);
                     renderCharts(result.data, result.rangos);
                 } else {
                     alert('Error: ' + result.error);
@@ -240,60 +300,27 @@
             }
         }
         
-        function renderStatistics(stats) {
-            const priceChangeClass = stats.price_change >= 0 ? 'positive' : 'negative';
-            const priceChangeSymbol = stats.price_change >= 0 ? '▲' : '▼';
-            
-            const html = `
-                <div class="col-md-3">
-                    <div class="card stat-card">
-                        <div class="stat-value">$${stats.current_price.toFixed(2)}</div>
-                        <div class="stat-label">Precio Actual</div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card stat-card">
-                        <div class="stat-value ${priceChangeClass}">
-                            ${priceChangeSymbol} ${stats.price_change_percentage.toFixed(2)}%
-                        </div>
-                        <div class="stat-label">Cambio de Precio</div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card stat-card">
-                        <div class="stat-value">${stats.total_volume.toFixed(2)}</div>
-                        <div class="stat-label">Volumen Total</div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card stat-card">
-                        <div class="stat-value">${stats.average_volume.toFixed(2)}</div>
-                        <div class="stat-label">Volumen Promedio</div>
-                    </div>
-                </div>
-            `;
-            
-            document.getElementById('statistics').innerHTML = html;
-        }
+        // Variable global para almacenar los datos del gráfico
+        let chartData = null;
         
         function renderCharts(data, rangos) {
+            // Guardar datos globalmente para el evento de click
+            chartData = data;
+            
             // Preparar datos
             const times = data.map(d => d.time);
             const opens = data.map(d => d.open);
             const highs = data.map(d => d.high);
             const lows = data.map(d => d.low);
             const closes = data.map(d => d.close);
-            const volumes = data.map(d => d.volume);
             
             // Extraer datos de pullbacks
             const altos = data.map(d => d.altos);
             const bajos = data.map(d => d.bajos);
             const pocAltos = data.map(d => d.pocAltos);
             const pocBajos = data.map(d => d.pocBajos);
-            
-            // Extraer datos de pivots locales (TODOS los pivots)
-            const pivotAlto = data.map(d => d.pivotAlto);
-            const pivotBajo = data.map(d => d.pivotBajo);
+            const circulosAzul = data.map(d => d.circulosAzul);
+            const circulosNaranja = data.map(d => d.circulosNaranja);
             
             // Gráfico de velas
             const candlestickTrace = {
@@ -318,7 +345,8 @@
                     size: 7,
                     symbol: 'y-up-open'
                 },
-                name: 'Altos'
+                name: 'Altos',
+                visible: 'legendonly'
             };
             
             // Marcadores de bajos (Y hacia abajo)
@@ -331,7 +359,8 @@
                     size: 7,
                     symbol: 'y-down-open'
                 },
-                name: 'Bajos'
+                name: 'Bajos',
+                visible: 'legendonly',
             };
             
             // Marcadores de POC Altos (triángulos pequeños hacia arriba en blanco)
@@ -344,7 +373,8 @@
                     size: 5,
                     symbol: 'triangle-up-open'
                 },
-                name: 'POC Altos'
+                name: 'POC Altos',
+                visible: 'legendonly',
             };
             
             // Marcadores de POC Bajos (triángulos pequeños hacia abajo en blanco)
@@ -357,35 +387,46 @@
                     size: 5,
                     symbol: 'triangle-down-open'
                 },
-                name: 'POC Bajos'
+                name: 'POC Bajos',
+                visible: 'legendonly',
             };
-            
-            // Marcadores de Pivots Altos Locales (círculos pequeños en cyan/azul claro)
-            const pivotAltoTrace = {
+
+            // Nuevo indicador: Círculos huecos AZUL en todas las Y (altos y bajos)
+            const circulosAzulTrace = {
                 x: times,
-                y: pivotAlto,
+                y: circulosAzul,
                 mode: 'markers',
                 marker: {
-                    color: 'rgb(0, 255, 255)',  // Cyan
-                    size: 4,
-                    symbol: 'circle'
+                    color: 'rgba(135, 206, 235, 0.8)', // Azul pastel oscuro
+                    size: 8,
+                    symbol: 'circle-open',
+                    line: {
+                        color: 'rgba(100, 149, 237, 1)', // Borde azul más oscuro
+                        width: 2
+                    }
                 },
-                name: 'Pivot Alto'
+                name: 'Círculos Azul (Y)',
+                visible: true
             };
-            
-            // Marcadores de Pivots Bajos Locales (círculos pequeños en magenta)
-            const pivotBajoTrace = {
+
+            // Nuevo indicador: Círculos huecos NARANJA en todos los triángulos (POC)
+            const circulosNaranjaTrace = {
                 x: times,
-                y: pivotBajo,
+                y: circulosNaranja,
                 mode: 'markers',
                 marker: {
-                    color: 'rgb(255, 0, 255)',  // Magenta
-                    size: 4,
-                    symbol: 'circle'
+                    color: 'rgba(255, 165, 0, 0.8)', // Naranja
+                    size: 12,
+                    symbol: 'circle-open',
+                    line: {
+                        color: 'rgba(255, 140, 0, 1)', // Borde naranja más oscuro
+                        width: 2
+                    }
                 },
-                name: 'Pivot Bajo'
+                name: 'Círculos Naranja (POC)',
+                visible: true
             };
-            
+
             // Determinar colores de las líneas según tendencia
             const rangoAltoColor = rangos.tendencia === 1 ? 'green' : '#ff9900';
             const rangoBajoColor = rangos.tendencia === 1 ? '#ff9900' : 'green';
@@ -443,30 +484,82 @@
                 margin: {t: 40, b: 40, l: 60, r: 40}
             };
             
-            // Agregar todas las trazas al gráfico
-            const traces = [candlestickTrace, pivotAltoTrace, pivotBajoTrace, altosTrace, bajosTrace, pocAltosTrace, pocBajosTrace];
+            // Agregar todas las trazas al gráfico (incluyendo los nuevos círculos)
+            const traces = [candlestickTrace, altosTrace, bajosTrace, pocAltosTrace, pocBajosTrace, circulosAzulTrace, circulosNaranjaTrace];
             
             Plotly.newPlot('candlestickChart', traces, candlestickLayout, {responsive: true});
             
-            // Gráfico de volumen
-            const volumeTrace = {
-                x: times,
-                y: volumes,
-                type: 'bar',
-                name: 'Volumen',
-                marker: {color: '#1da1f2', opacity: 0.7}
-            };
-            
-            const volumeLayout = {
-                paper_bgcolor: '#192734',
-                plot_bgcolor: '#192734',
-                font: {color: '#e1e8ed'},
-                xaxis: {gridcolor: '#38444d'},
-                yaxis: {gridcolor: '#38444d'},
-                margin: {t: 20, b: 40, l: 60, r: 40}
-            };
-            
-            Plotly.newPlot('volumeChart', [volumeTrace], volumeLayout, {responsive: true});
+            // Agregar evento de click para medir desde puntos naranjas a puntos azules
+            const chartDiv = document.getElementById('candlestickChart');
+            chartDiv.on('plotly_click', function(data) {
+                // El índice 6 corresponde a circulosNaranjaTrace (candlestick=0, altos=1, bajos=2, pocAltos=3, pocBajos=4, circulosAzul=5, circulosNaranja=6)
+                const clickedPoint = data.points[0];
+                const curveNumber = clickedPoint.curveNumber;
+                
+                // Solo procesar si se hizo click en la traza de círculos naranja (índice 6)
+                if (curveNumber !== 6) {
+                    return;
+                }
+                
+                const clickedIndex = clickedPoint.pointNumber;
+                
+                // Verificar que el punto clickeado tiene un valor naranja válido
+                if (circulosNaranja[clickedIndex] === null || circulosNaranja[clickedIndex] === undefined || isNaN(circulosNaranja[clickedIndex])) {
+                    return;
+                }
+                
+                // Buscar el siguiente punto azul después del punto naranja clickeado
+                let siguienteAzulIndex = -1;
+                for (let i = clickedIndex + 1; i < circulosAzul.length; i++) {
+                    if (circulosAzul[i] !== null && circulosAzul[i] !== undefined && !isNaN(circulosAzul[i])) {
+                        siguienteAzulIndex = i;
+                        break;
+                    }
+                }
+                
+                if (siguienteAzulIndex === -1) {
+                    alert('No se encontró un punto azul después del punto naranja seleccionado');
+                    return;
+                }
+                
+                // Obtener valores y fechas (sin convertir, tal como vienen)
+                const fechaNaranjaStr = times[clickedIndex];
+                const fechaAzulStr = times[siguienteAzulIndex];
+                const valorNaranja = circulosNaranja[clickedIndex];
+                const valorAzul = circulosAzul[siguienteAzulIndex];
+                
+                // Calcular porcentaje
+                const porcentaje = ((valorAzul - valorNaranja) / valorNaranja) * 100;
+                
+                // Formatear fechas directamente desde el string sin conversiones
+                const formatoFecha = (fechaStr) => {
+                    // Extraer fecha y hora directamente del string ISO sin usar Date
+                    // Formato esperado: "2024-01-15T14:30:00" o "2024-01-15T14:30:00.000Z"
+                    if (typeof fechaStr === 'string') {
+                        const partes = fechaStr.split('T');
+                        if (partes.length === 2) {
+                            const fechaParte = partes[0]; // "2024-01-15"
+                            const horaParte = partes[1].split('.')[0].split('Z')[0]; // "14:30:00" (sin milisegundos ni Z)
+                            const [año, mes, dia] = fechaParte.split('-');
+                            const [horas, minutos] = horaParte.split(':');
+                            return `${dia}/${mes}/${año} ${horas}:${minutos}`;
+                        }
+                        return fechaStr; // Si no es formato ISO, devolver tal cual
+                    }
+                    // Si no es string, convertir a string primero
+                    return String(fechaStr);
+                };
+                
+                // Mostrar información en el panel
+                document.getElementById('fechaNaranja').textContent = formatoFecha(fechaNaranjaStr);
+                document.getElementById('fechaAzul').textContent = formatoFecha(fechaAzulStr);
+                document.getElementById('valorNaranja').textContent = valorNaranja.toFixed(2);
+                document.getElementById('valorAzul').textContent = valorAzul.toFixed(2);
+                document.getElementById('porcentaje').textContent = porcentaje.toFixed(2) + '%';
+                
+                // Mostrar el panel
+                document.getElementById('infoPanel').classList.add('show');
+            });
         }
         
         // Cargar datos iniciales al cargar la página

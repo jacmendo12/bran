@@ -33,7 +33,7 @@ async def get_dashboard_data(
     interval: str = Query(default="1h", description="Intervalo temporal (1m, 5m, 15m, 1h, 1d)"),
     limit: int = Query(default=1000, ge=1, le=1000, description="Número de velas a obtener"),
     start_time: Optional[int] = Query(default=None, description="Tiempo de inicio en milisegundos"),
-    minimum_tresure: float = Query(default=2.1, description="Umbral mínimo para detección de pullbacks")
+    minimum_tresure: float = Query(default=0.21, description="Umbral mínimo para detección de pullbacks")
 ):
     """
     Endpoint para obtener datos del mercado con detección de pullbacks
@@ -43,7 +43,7 @@ async def get_dashboard_data(
         interval: Intervalo temporal (1m, 5m, 15m, 1h, 1d, etc.)
         limit: Número de velas a obtener (1-1000)
         start_time: Tiempo de inicio en milisegundos (opcional)
-        minimum_tresure: Umbral mínimo para detección de pullbacks (por defecto 2.1)
+        minimum_tresure: Umbral mínimo para detección de pullbacks (por defecto 0.21)
         
     Returns:
         JSON con los datos del mercado, estadísticas y pullbacks detectados

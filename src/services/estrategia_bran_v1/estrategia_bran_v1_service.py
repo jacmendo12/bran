@@ -26,7 +26,7 @@ class EstrategiaBranV1Service:
                           interval: str = "1h", 
                           limit: int = 1000,
                           start_time: Optional[int] = None,
-                          minimum_tresure: float = 2.1) -> Dict[str, Any]:
+                          minimum_tresure: float = 0.21) -> Dict[str, Any]:
         """
         Obtiene datos del mercado y detecta pullbacks para el dashboard
         
@@ -35,7 +35,7 @@ class EstrategiaBranV1Service:
             interval: Intervalo temporal (1m, 5m, 15m, 1h, 4h, 1d, etc.)
             limit: Número de velas a obtener
             start_time: Tiempo de inicio en milisegundos (opcional)
-            minimum_tresure: Umbral mínimo para detección de pullbacks (por defecto 2.1)
+            minimum_tresure: Umbral mínimo para detección de pullbacks (por defecto 0.21)
             
         Returns:
             Diccionario con los datos del mercado, estadísticas y pullbacks detectados
@@ -61,8 +61,10 @@ class EstrategiaBranV1Service:
             df['bajos'] = math.nan
             df['pocAltos'] = math.nan
             df['pocBajos'] = math.nan
-            df['pivotAlto'] = math.nan
-            df['pivotBajo'] = math.nan
+            df['triangulosAzul'] = math.nan
+            df['ysRosado'] = math.nan
+            df['circulosAzul'] = math.nan
+            df['circulosNaranja'] = math.nan
             df['tendencia'] = 0
             
             # Detectar pullbacks
@@ -78,6 +80,14 @@ class EstrategiaBranV1Service:
             import numpy as np
             df_clean = df_with_pullbacks.copy()
             
+            # Convertir columnas de tiempo a string antes de convertir a diccionario
+            if 'time' in df_clean.columns:
+                df_clean['time'] = df_clean['time'].apply(lambda x: x.isoformat() if pd.notna(x) and hasattr(x, 'isoformat') else None)
+            if 'siguiente_poc_time' in df_clean.columns:
+                df_clean['siguiente_poc_time'] = df_clean['siguiente_poc_time'].apply(
+                    lambda x: x.isoformat() if pd.notna(x) and hasattr(x, 'isoformat') else None
+                )
+            
             # Reemplazar todos los valores problemáticos
             df_clean = df_clean.replace([np.inf, -np.inf], None)
             df_clean = df_clean.where(pd.notna(df_clean), None)
@@ -87,17 +97,33 @@ class EstrategiaBranV1Service:
             
             # Limpieza adicional: asegurar que cada valor numérico sea válido para JSON
             for record in data_dict:
-                # Convertir timestamp
-                if record.get('time') is not None:
-                    try:
-                        record['time'] = record['time'].isoformat()
-                    except:
-                        record['time'] = None
+                # Convertir todos los campos que pueden ser Timestamps
+                for key in ['time', 'siguiente_poc_time']:
+                    if record.get(key) is not None:
+                        try:
+                            # Si es un Timestamp de pandas o datetime, convertirlo
+                            if isinstance(record[key], pd.Timestamp):
+                                record[key] = record[key].isoformat()
+                            elif hasattr(record[key], 'isoformat'):
+                                record[key] = record[key].isoformat()
+                            elif pd.isna(record[key]):
+                                record[key] = None
+                        except (AttributeError, TypeError, ValueError):
+                            record[key] = None
                 
-                # Limpiar todos los campos numéricos
+                # Limpiar todos los campos numéricos y otros tipos
                 for key, value in list(record.items()):
                     if isinstance(value, float):
                         if pd.isna(value) or np.isinf(value):
+                            record[key] = None
+                    # Asegurar que cumple_minimo sea booleano
+                    elif key == 'cumple_minimo':
+                        record[key] = bool(value) if value is not None else False
+                    # Convertir cualquier otro Timestamp que pueda haber quedado
+                    elif isinstance(value, pd.Timestamp):
+                        try:
+                            record[key] = value.isoformat()
+                        except:
                             record[key] = None
             
             # Limpiar rangos también
